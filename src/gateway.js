@@ -1,6 +1,7 @@
 import fs from 'fs'
 import tls from 'tls'
 import net from 'net'
+import {resolveDownstreamPort} from "./dockerResolver.js";
 
 const keypath = process.env.KEYPATH;
 const port = parseInt(process.env.PORT) || 443;
@@ -27,7 +28,7 @@ function tlsServerNameHandler(domain, callback) {
 async function proxyHandler(tlsSocket) {
     try {
         const subdomain = tlsSocket.domain.split('.')[0];
-        const targetPort = parseInt(subdomain);
+        const targetPort = await resolveDownstreamPort(subdomain);
         const downstream = net.connect({
             port: targetPort || 80,
             host: '127.0.0.1'
