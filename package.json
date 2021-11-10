@@ -1,0 +1,9 @@
+{
+  "name": "gateway-poc",
+  "version": "0.1.0",
+  "description": "TLS subdomain reverse proxy",
+  "main": "src/gateway.js",
+  "type": "module",
+  "author": "gregorcasar@gmail.com",
+  "license": "ISC"
+}
