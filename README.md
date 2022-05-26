@@ -4,6 +4,7 @@ Exposes dockerized http servers using their name. Requires a wildcard certificat
 
 **This is a proof-of-concept.** No error handling. You can use other things to the same effect: nginx, traefik, ...
 
+![gateway flow diagram](gateway-diagram.png)
 
 ### Simple example
 Expose a nginx demo under `https://test.your.domain`
