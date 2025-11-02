@@ -1,0 +1,29 @@
+# Environment files
+.env
+
+# Traefik certificates and data
+letsencrypt/
+acme.json
+
+# Node modules (for original implementation)
+node_modules/
+
+# Log files
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+*.tmp

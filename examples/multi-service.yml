@@ -1,0 +1,79 @@
+# Example: Multiple Services with Path-based Routing
+
+version: '3.8'
+
+services:
+  # Frontend application
+  frontend:
+    image: nginx:alpine
+    container_name: frontend
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    networks:
+      - traefik-proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-proxy"
+      
+      # Main domain root
+      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN}`) && PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=cloudflare"
+      - "traefik.http.routers.frontend.priority=1"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+
+  # API backend
+  api:
+    image: your-api:latest
+    container_name: api-backend
+    restart: unless-stopped
+    networks:
+      - traefik-proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-proxy"
+      
+      # API at /api path
+      - "traefik.http.routers.api.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls.certresolver=cloudflare"
+      - "traefik.http.routers.api.priority=10"
+      
+      # Strip /api prefix before sending to backend
+      - "traefik.http.routers.api.middlewares=api-stripprefix,api-cors,compress"
+      - "traefik.http.middlewares.api-stripprefix.stripprefix.prefixes=/api"
+      
+      # CORS headers
+      - "traefik.http.middlewares.api-cors.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
+      - "traefik.http.middlewares.api-cors.headers.accesscontrolalloworiginlist=https://${DOMAIN}"
+      - "traefik.http.middlewares.api-cors.headers.accesscontrolmaxage=100"
+      - "traefik.http.middlewares.api-cors.headers.addvaryheader=true"
+      
+      - "traefik.http.services.api.loadbalancer.server.port=8080"
+
+  # Admin panel
+  admin:
+    image: your-admin:latest
+    container_name: admin-panel
+    restart: unless-stopped
+    networks:
+      - traefik-proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-proxy"
+      
+      # Admin subdomain
+      - "traefik.http.routers.admin.rule=Host(`admin.${DOMAIN}`)"
+      - "traefik.http.routers.admin.entrypoints=websecure"
+      - "traefik.http.routers.admin.tls.certresolver=cloudflare"
+      
+      # IP whitelist for admin access (optional)
+      - "traefik.http.routers.admin.middlewares=admin-ipwhitelist,security-headers"
+      - "traefik.http.middlewares.admin-ipwhitelist.ipwhitelist.sourcerange=192.168.1.0/24,10.0.0.0/8"
+      
+      - "traefik.http.services.admin.loadbalancer.server.port=80"
+
+networks:
+  traefik-proxy:
+    external: true
