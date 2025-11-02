@@ -1,7 +1,5 @@
 # Example: WordPress with Traefik
 
-version: '3.8'
-
 services:
   wordpress:
     image: wordpress:latest

@@ -1,7 +1,5 @@
 # Example: Node.js Application with Traefik
 
-version: '3.8'
-
 services:
   # Node.js application
   nodejs-app:

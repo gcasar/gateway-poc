@@ -1,7 +1,5 @@
 # Example: Multiple Services with Path-based Routing
 
-version: '3.8'
-
 services:
   # Frontend application
   frontend:
