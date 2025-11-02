@@ -25,10 +25,14 @@ http:
         period: 1s
     
     # Real IP from Cloudflare
+    # NOTE: These IP ranges should be updated periodically
+    # Source: https://www.cloudflare.com/ips/
+    # Last updated: 2025-11
     cloudflare-ip:
       ipWhiteList:
         sourceRange:
-          # Cloudflare IPv4 ranges (update periodically from https://www.cloudflare.com/ips/)
+          # Cloudflare IPv4 ranges
+          # Update these periodically from https://www.cloudflare.com/ips/
           - "173.245.48.0/20"
           - "103.21.244.0/22"
           - "103.22.200.0/22"

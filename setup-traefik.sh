@@ -160,7 +160,7 @@ read -p "Do you want to start Traefik now? (Y/n) " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Nn]$ ]]; then
     echo "Starting Traefik..."
-    docker-compose -f docker-compose.traefik.yml up -d
+    docker compose -f docker-compose.traefik.yml up -d
     
     echo
     print_success "Traefik is starting up!"
@@ -171,19 +171,27 @@ if [[ ! $REPLY =~ ^[Nn]$ ]]; then
     if docker ps | grep -q traefik-gateway; then
         print_success "Traefik is running"
         echo
-        echo "You can access:"
-        echo "  - Dashboard: https://traefik.$DOMAIN"
-        echo "  - Example service: https://whoami.$DOMAIN"
-        echo
-        echo "View logs with: docker-compose -f docker-compose.traefik.yml logs -f traefik"
+        
+        # Source DOMAIN from .env
+        if [ -f .env ]; then
+            DOMAIN_VALUE=$(grep "^DOMAIN=" .env | cut -d= -f2)
+            if [ -n "$DOMAIN_VALUE" ]; then
+                echo "You can access:"
+                echo "  - Dashboard: https://traefik.$DOMAIN_VALUE"
+                echo "  - Example service: https://whoami.$DOMAIN_VALUE"
+                echo
+            fi
+        fi
+        
+        echo "View logs with: docker compose -f docker-compose.traefik.yml logs -f traefik"
     else
         print_error "Traefik failed to start. Check logs with:"
-        echo "docker-compose -f docker-compose.traefik.yml logs traefik"
+        echo "docker compose -f docker-compose.traefik.yml logs traefik"
     fi
 else
     echo
     print_info "To start Traefik later, run:"
-    echo "docker-compose -f docker-compose.traefik.yml up -d"
+    echo "docker compose -f docker-compose.traefik.yml up -d"
 fi
 
 echo

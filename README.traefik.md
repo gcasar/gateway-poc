@@ -245,6 +245,31 @@ If certificates aren't being issued:
 3. Verify Cloudflare proxy (orange cloud) is enabled
 4. Check authentication credentials
 
+## 🔧 Maintenance
+
+### Updating Cloudflare IP Ranges
+
+The Cloudflare IP whitelist in `traefik-dynamic.yml` should be updated periodically:
+
+1. Check current ranges: https://www.cloudflare.com/ips/
+2. Update the `cloudflare-ip` middleware in `traefik-dynamic.yml`
+3. Reload Traefik: `docker compose -f docker-compose.traefik.yml restart traefik`
+
+**Recommended:** Check for updates quarterly or when Cloudflare announces changes.
+
+### Updating Traefik
+
+To update to a newer Traefik version:
+
+```bash
+# Pull latest image
+docker pull traefik:v2.10
+
+# Restart stack
+docker compose -f docker-compose.traefik.yml down
+docker compose -f docker-compose.traefik.yml up -d
+```
+
 ## 📚 Additional Resources
 
 - [Traefik Documentation](https://doc.traefik.io/traefik/)

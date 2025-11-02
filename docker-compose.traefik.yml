@@ -38,7 +38,7 @@ services:
       # Dashboard authentication (basic auth)
       # Generate password with: echo $(htpasswd -nb admin yourpassword) | sed -e s/\\$/\\$\\$/g
       - "traefik.http.routers.traefik-dashboard.middlewares=dashboard-auth"
-      - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_DASHBOARD_USERS:-admin:$$apr1$$8EVjn/nj$$GiLUZqcbueTFeD23SuB6x0}"
+      - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_DASHBOARD_USERS}"
 
   # Example service to demonstrate automatic routing
   whoami:
