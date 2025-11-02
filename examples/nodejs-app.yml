@@ -1,0 +1,42 @@
+# Example: Node.js Application with Traefik
+
+services:
+  # Node.js application
+  nodejs-app:
+    build: .
+    container_name: nodejs-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    volumes:
+      - ./app:/usr/src/app
+      - /usr/src/app/node_modules
+    networks:
+      - traefik-proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-proxy"
+      
+      # Router configuration
+      - "traefik.http.routers.nodejs-app.rule=Host(`app.${DOMAIN}`)"
+      - "traefik.http.routers.nodejs-app.entrypoints=websecure"
+      - "traefik.http.routers.nodejs-app.tls.certresolver=cloudflare"
+      
+      # Service port
+      - "traefik.http.services.nodejs-app.loadbalancer.server.port=3000"
+      
+      # Middlewares
+      - "traefik.http.routers.nodejs-app.middlewares=nodejs-ratelimit,security-headers,compress"
+      
+      # Rate limiting
+      - "traefik.http.middlewares.nodejs-ratelimit.ratelimit.average=100"
+      - "traefik.http.middlewares.nodejs-ratelimit.ratelimit.burst=50"
+      
+      # Health check
+      - "traefik.http.services.nodejs-app.loadbalancer.healthcheck.path=/health"
+      - "traefik.http.services.nodejs-app.loadbalancer.healthcheck.interval=30s"
+
+networks:
+  traefik-proxy:
+    external: true

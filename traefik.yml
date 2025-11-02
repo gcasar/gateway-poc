@@ -1,0 +1,102 @@
+# Traefik static configuration file
+# This file configures the core Traefik settings
+
+api:
+  # Enable the dashboard
+  dashboard: true
+  # Don't require manual activation
+  insecure: true
+
+# Entry points define the ports Traefik listens on
+entryPoints:
+  web:
+    address: ":80"
+    # Redirect all HTTP to HTTPS
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+  
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        certResolver: cloudflare
+        domains:
+          - main: "${DOMAIN}"
+            sans:
+              - "*.${DOMAIN}"
+  
+  # Metrics endpoint
+  metrics:
+    address: ":8082"
+
+# Prometheus metrics
+metrics:
+  prometheus:
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
+    entryPoint: metrics
+    buckets:
+      - 0.1
+      - 0.3
+      - 1.2
+      - 5.0
+
+# Configure certificate resolvers
+certificatesResolvers:
+  cloudflare:
+    acme:
+      # Email for Let's Encrypt notifications
+      email: "${LETSENCRYPT_EMAIL}"
+      # Store certificates in this file
+      storage: /letsencrypt/acme.json
+      # Use DNS-01 challenge with Cloudflare
+      dnsChallenge:
+        provider: cloudflare
+        # Cloudflare DNS propagation can take time
+        delayBeforeCheck: 30s
+        resolvers:
+          - "1.1.1.1:53"
+          - "1.0.0.1:53"
+
+# Docker provider configuration
+providers:
+  docker:
+    # Enable Docker provider
+    endpoint: "unix:///var/run/docker.sock"
+    # Don't expose all containers by default
+    exposedByDefault: false
+    # Use this network for communication
+    network: traefik-proxy
+    # Watch for Docker events
+    watch: true
+  
+  # File provider for additional dynamic configuration
+  file:
+    filename: /traefik-dynamic.yml
+    watch: true
+
+# Global configuration
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false
+
+# Logging
+log:
+  level: INFO
+  format: json
+
+# Access logs
+accessLog:
+  format: json
+  fields:
+    headers:
+      defaultMode: keep
+      names:
+        User-Agent: keep
+        Authorization: drop
+        Content-Type: keep

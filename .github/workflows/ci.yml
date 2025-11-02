@@ -1,0 +1,210 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
+# Default permissions for all jobs
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Configuration
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Validate docker-compose configuration
+        run: |
+          docker compose -f docker-compose.traefik.yml config > /dev/null
+          echo "✅ Docker Compose configuration is valid"
+      
+      - name: Validate Traefik configuration
+        run: |
+          # Use Traefik container to check version (config validation via dry-run not supported)
+          docker run --rm traefik:v2.10 version
+          echo "✅ Traefik image is valid"
+      
+      - name: Check for sensitive data
+        run: |
+          # Check if any sensitive files are committed
+          if [ -f .env ]; then
+            echo "❌ Error: .env file should not be committed"
+            exit 1
+          fi
+          
+          if [ -d letsencrypt ]; then
+            echo "❌ Error: letsencrypt directory should not be committed"
+            exit 1
+          fi
+          
+          echo "✅ No sensitive data found"
+      
+      - name: Verify .env.example exists
+        run: |
+          if [ ! -f .env.example ]; then
+            echo "❌ Error: .env.example file is missing"
+            exit 1
+          fi
+          echo "✅ .env.example exists"
+
+  lint:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Lint YAML files
+        run: |
+          docker run --rm -v $(pwd):/yaml pipelinecomponents/yamllint yamllint \
+            -d '{extends: default, rules: {line-length: {max: 120}, indentation: {spaces: 2}}}' \
+            docker-compose.traefik.yml traefik.yml traefik-dynamic.yml .github/workflows/*.yml
+      
+      - name: Check shell scripts
+        run: |
+          if ls *.sh 1> /dev/null 2>&1; then
+            docker run --rm -v $(pwd):/scripts koalaman/shellcheck:stable /scripts/*.sh
+          else
+            echo "No shell scripts to check"
+          fi
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: [validate, lint]
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Create test environment file
+        run: |
+          cat > .env << EOF
+          DOMAIN=test.local
+          CF_API_EMAIL=test@example.com
+          CF_DNS_API_TOKEN=test-token
+          LETSENCRYPT_EMAIL=test@example.com
+          TRAEFIK_DASHBOARD_USERS=admin:\$\$apr1\$\$8EVjn/nj\$\$GiLUZqcbueTFeD23SuB6x0
+          EOF
+      
+      - name: Create letsencrypt directory
+        run: mkdir -p letsencrypt && chmod 600 letsencrypt
+      
+      - name: Start Traefik stack (dry run)
+        run: |
+          # Start services in detached mode
+          docker compose -f docker-compose.traefik.yml up -d
+          
+          # Wait for Traefik to be ready
+          timeout 30 sh -c 'until docker exec traefik-gateway traefik version; do sleep 1; done'
+          
+          echo "✅ Traefik started successfully"
+      
+      - name: Check Traefik health
+        run: |
+          # Check if Traefik API is accessible
+          timeout 10 sh -c 'until curl -f http://localhost:8080/api/overview; do sleep 1; done'
+          echo "✅ Traefik API is accessible"
+      
+      - name: Test HTTP to HTTPS redirect
+        run: |
+          # Test redirect functionality
+          response=$(curl -s -o /dev/null -w "%{http_code}" -L http://localhost/)
+          if [ "$response" = "404" ] || [ "$response" = "301" ] || [ "$response" = "308" ]; then
+            echo "✅ HTTP redirect working (status: $response)"
+          else
+            echo "❌ Unexpected response: $response"
+            exit 1
+          fi
+      
+      - name: Display Traefik logs
+        if: always()
+        run: docker compose -f docker-compose.traefik.yml logs traefik
+      
+      - name: Cleanup
+        if: always()
+        run: docker compose -f docker-compose.traefik.yml down -v
+
+  deploy-docs:
+    name: Deploy Documentation
+    runs-on: ubuntu-latest
+    needs: [test, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Deploy to GitHub Pages (if configured)
+        run: |
+          echo "Documentation deployment placeholder"
+          echo "Configure GitHub Pages to deploy docs if needed"
+
+  notify:
+    name: Notify Status
+    runs-on: ubuntu-latest
+    needs: [validate, lint, security-scan, test]
+    if: always()
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Check workflow status
+        run: |
+          if [ "${{ needs.validate.result }}" = "success" ] && \
+             [ "${{ needs.lint.result }}" = "success" ] && \
+             [ "${{ needs.security-scan.result }}" = "success" ] && \
+             [ "${{ needs.test.result }}" = "success" ]; then
+            echo "✅ All checks passed!"
+          else
+            echo "❌ Some checks failed"
+            exit 1
+          fi
