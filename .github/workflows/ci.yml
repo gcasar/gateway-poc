@@ -11,10 +11,16 @@ env:
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
 
+# Default permissions for all jobs
+permissions:
+  contents: read
+
 jobs:
   validate:
     name: Validate Configuration
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout code
@@ -60,6 +66,8 @@ jobs:
   lint:
     name: Lint and Format Check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout code
@@ -82,6 +90,9 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     
     steps:
       - name: Checkout code
@@ -105,6 +116,8 @@ jobs:
     name: Integration Test
     runs-on: ubuntu-latest
     needs: [validate, lint]
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout code
@@ -163,6 +176,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, security-scan]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout code
@@ -178,6 +193,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate, lint, security-scan, test]
     if: always()
+    permissions:
+      contents: read
     
     steps:
       - name: Check workflow status
